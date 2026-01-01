@@ -14,7 +14,12 @@ _PARENT_DIR = Path(__file__).parent.parent
 if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
-from core.auth import get_auth_token, get_auth_token_source
+from core.auth import (
+    get_ai_provider,
+    get_auth_token,
+    get_auth_token_source,
+    get_provider_base_url_env,
+)
 from dotenv import load_dotenv
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager
@@ -117,24 +122,41 @@ def validate_environment(spec_dir: Path) -> bool:
     """
     valid = True
 
+    provider = get_ai_provider()
+    print(f"Provider: {provider}")
+
     # Check for OAuth token (API keys are not supported)
-    if not get_auth_token():
-        print("Error: No OAuth token found")
-        print("\nAuto Claude requires Claude Code OAuth authentication.")
+    if not get_auth_token(provider):
+        print("Error: No auth token found")
+        print("\nAuto Claude requires provider authentication.")
         print("Direct API keys (ANTHROPIC_API_KEY) are not supported.")
-        print("\nTo authenticate, run:")
-        print("  claude setup-token")
+        if provider == "claude":
+            print("\nTo authenticate, run:")
+            print("  claude setup-token")
+        elif provider == "codex":
+            print("\nTo authenticate, set:")
+            print("  CODEX_API_KEY")
+        else:
+            print("\nTo authenticate, set:")
+            print("  ANTIGRAVITY_API_KEY")
         valid = False
     else:
         # Show which auth source is being used
-        source = get_auth_token_source()
+        source = get_auth_token_source(provider)
         if source:
             print(f"Auth: {source}")
 
         # Show custom base URL if set
-        base_url = os.environ.get("ANTHROPIC_BASE_URL")
+        base_url_env = get_provider_base_url_env(provider)
+        base_url = os.environ.get(base_url_env) if base_url_env else None
         if base_url:
             print(f"API Endpoint: {base_url}")
+
+    if provider != "claude":
+        print(
+            "Note: Full agent sessions (tools/MCP) require Claude SDK. "
+            "Non-Claude providers are prompt-only."
+        )
 
     # Check for spec.md in spec directory
     spec_file = spec_dir / "spec.md"

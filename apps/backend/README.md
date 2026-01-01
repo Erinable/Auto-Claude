@@ -17,12 +17,23 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Set your Claude API token in `.env`:
+Set your provider token in `.env`:
 ```
 CLAUDE_CODE_OAUTH_TOKEN=your-token-here
 ```
 
-Get your token by running: `claude setup-token`
+Get your Claude token by running: `claude setup-token`
+
+To use codex or antigravity instead, set:
+```
+AUTO_CLAUDE_PROVIDER=codex
+CODEX_API_KEY=your-codex-token
+```
+or:
+```
+AUTO_CLAUDE_PROVIDER=antigravity
+ANTIGRAVITY_API_KEY=your-antigravity-token
+```
 
 ### 3. Run
 
@@ -37,7 +48,7 @@ python run.py --spec 001
 ## Requirements
 
 - Python 3.10+
-- Claude API token
+- Claude API token (or codex/antigravity token for prompt-only usage)
 
 ## Commands
 
@@ -61,6 +72,7 @@ Optional `.env` settings:
 | Variable | Description |
 |----------|-------------|
 | `AUTO_BUILD_MODEL` | Override Claude model |
+| `AUTO_CLAUDE_PROVIDER` | Provider: `claude` (full agent support), `codex`/`antigravity` (prompt-only) |
 | `DEBUG=true` | Enable debug logging |
 | `LINEAR_API_KEY` | Enable Linear integration |
 | `GRAPHITI_ENABLED=true` | Enable memory system |

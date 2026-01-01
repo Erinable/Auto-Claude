@@ -32,7 +32,7 @@ from agents.tools_pkg import (
 )
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
-from core.auth import get_sdk_env_vars, require_auth_token
+from core.auth import get_ai_provider, get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
@@ -368,7 +368,9 @@ def create_client(
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
 
     Returns:
-        Configured ClaudeSDKClient
+        Configured ClaudeSDKClient. Full agent sessions require the Claude SDK.
+        Codex/antigravity providers only support prompt-only workflows and must
+        be routed through a separate HTTP client.
 
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
@@ -380,7 +382,16 @@ def create_client(
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
-    oauth_token = require_auth_token()
+    provider = get_ai_provider()
+    if provider != "claude":
+        raise ValueError(
+            "Full agent sessions require the Claude Agent SDK for tool and MCP "
+            "support. Set AUTO_CLAUDE_PROVIDER=claude to run agent workflows. "
+            "Codex/antigravity providers are supported only for prompt-only "
+            "HTTP workflows outside core.client."
+        )
+
+    oauth_token = require_auth_token(provider="claude")
     # Ensure SDK can access it via its expected env var
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
 

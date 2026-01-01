@@ -77,8 +77,11 @@ Prerequisites:
   2. Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN
 
 Environment Variables:
-  CLAUDE_CODE_OAUTH_TOKEN  Your Claude Code OAuth token (required)
+  AUTO_CLAUDE_PROVIDER     Provider to use: claude | codex | antigravity
+  CLAUDE_CODE_OAUTH_TOKEN  Claude Code OAuth token (claude provider)
                            Get it by running: claude setup-token
+  CODEX_API_KEY            Codex API key (codex provider)
+  ANTIGRAVITY_API_KEY      Antigravity API key (antigravity provider)
   AUTO_BUILD_MODEL         Override default model (optional)
         """,
     )

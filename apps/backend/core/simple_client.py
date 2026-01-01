@@ -25,7 +25,7 @@ from pathlib import Path
 
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from core.auth import get_sdk_env_vars, require_auth_token
+from core.auth import get_ai_provider, get_sdk_env_vars, require_auth_token
 from phase_config import get_thinking_budget
 
 
@@ -64,8 +64,14 @@ def create_simple_client(
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
     """
+    provider = get_ai_provider()
+    if provider != "claude":
+        raise ValueError(
+            "Simple clients rely on the Claude SDK. "
+            "Set AUTO_CLAUDE_PROVIDER=claude to use create_simple_client."
+        )
     # Get authentication
-    oauth_token = require_auth_token()
+    oauth_token = require_auth_token(provider="claude")
     import os
 
     os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
