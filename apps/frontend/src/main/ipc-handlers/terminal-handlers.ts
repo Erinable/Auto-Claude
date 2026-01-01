@@ -9,6 +9,14 @@ import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
+import type { SubscriptionProvider } from '../terminal/subscription-providers';
+import { isSubscriptionProvider } from '../terminal/subscription-providers';
+
+const PROVIDER_LOGIN_COMMANDS: Record<SubscriptionProvider, string> = {
+  claude: 'claude setup-token',
+  codex: 'opencode login codex',
+  antigravity: 'opencode login antigravity'
+};
 
 
 /**
@@ -291,33 +299,41 @@ export function registerTerminalHandlers(
 
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE,
-    async (_, profileId: string): Promise<IPCResult> => {
+    async (_, profileId: string, provider?: string): Promise<IPCResult> => {
       try {
+        const resolvedProvider: SubscriptionProvider = isSubscriptionProvider(provider ?? 'claude')
+          ? (provider as SubscriptionProvider)
+          : 'claude';
         const profileManager = getClaudeProfileManager();
         const profile = profileManager.getProfile(profileId);
         if (!profile) {
           return { success: false, error: 'Profile not found' };
         }
 
-        // Ensure the config directory exists for non-default profiles
-        if (!profile.isDefault && profile.configDir) {
-          const { mkdirSync, existsSync } = await import('fs');
-          if (!existsSync(profile.configDir)) {
-            mkdirSync(profile.configDir, { recursive: true });
-            debugLog('[IPC] Created config directory:', profile.configDir);
+        if (resolvedProvider === 'claude') {
+          // Ensure the config directory exists for non-default profiles
+          if (!profile.isDefault && profile.configDir) {
+            const { mkdirSync, existsSync } = await import('fs');
+            if (!existsSync(profile.configDir)) {
+              mkdirSync(profile.configDir, { recursive: true });
+              debugLog('[IPC] Created config directory:', profile.configDir);
+            }
           }
         }
 
-        // Create a terminal and run claude setup-token there
-        // This is needed because claude setup-token requires TTY/raw mode
-        const terminalId = `claude-login-${profileId}-${Date.now()}`;
+        // Create a terminal and run provider-specific login there
+        // This is needed because login flows require TTY/raw mode
+        const terminalId = resolvedProvider === 'claude'
+          ? `claude-login-${profileId}-${Date.now()}`
+          : `subscription-login-${resolvedProvider}-${profileId}-${Date.now()}`;
         const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
 
-        debugLog('[IPC] Initializing Claude profile:', {
+        debugLog('[IPC] Initializing subscription login:', {
           profileId,
           profileName: profile.name,
           configDir: profile.configDir,
-          isDefault: profile.isDefault
+          isDefault: profile.isDefault,
+          provider: resolvedProvider
         });
 
         // Create a new terminal for the login process
@@ -329,20 +345,20 @@ export function registerTerminalHandlers(
         // Build the login command with the profile's config dir
         // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
-        if (!profile.isDefault && profile.configDir) {
+        if (resolvedProvider === 'claude' && !profile.isDefault && profile.configDir) {
           if (process.platform === 'win32') {
             // SECURITY: Use Windows-specific escaping for cmd.exe
             const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${PROVIDER_LOGIN_COMMANDS[resolvedProvider]}`;
           } else {
             // SECURITY: Use POSIX escaping for bash/zsh
             const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${PROVIDER_LOGIN_COMMANDS[resolvedProvider]}`;
           }
         } else {
-          loginCommand = 'claude setup-token';
+          loginCommand = PROVIDER_LOGIN_COMMANDS[resolvedProvider];
         }
 
         debugLog('[IPC] Sending login command to terminal:', loginCommand);
@@ -350,9 +366,9 @@ export function registerTerminalHandlers(
         // Write the login command to the terminal
         terminalManager.write(terminalId, `${loginCommand}\r`);
 
-        // Notify the renderer that a login terminal was created
+        // Notify the renderer that a login terminal was created (Claude only)
         const mainWindow = getMainWindow();
-        if (mainWindow) {
+        if (mainWindow && resolvedProvider === 'claude') {
           mainWindow.webContents.send('claude-profile-login-terminal', {
             terminalId,
             profileId,
@@ -364,7 +380,9 @@ export function registerTerminalHandlers(
           success: true,
           data: {
             terminalId,
-            message: `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
+            message: resolvedProvider === 'claude'
+              ? `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
+              : `A terminal has been opened to authenticate the ${resolvedProvider} provider. Complete the login flow, then copy the token shown in the terminal.`
           }
         };
       } catch (error) {

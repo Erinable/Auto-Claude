@@ -42,6 +42,19 @@ export interface OAuthTokenEvent {
 }
 
 /**
+ * Subscription token event data
+ */
+export interface SubscriptionTokenEvent {
+  terminalId: string;
+  provider: string;
+  profileId?: string;
+  email?: string;
+  success: boolean;
+  message?: string;
+  detectedAt: string;
+}
+
+/**
  * Session capture result
  */
 export interface SessionCaptureResult {

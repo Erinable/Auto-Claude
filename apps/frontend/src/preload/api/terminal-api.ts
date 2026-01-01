@@ -232,6 +232,21 @@ export const createTerminalAPI = (): TerminalAPI => ({
     };
   },
 
+  onTerminalSubscriptionToken: (
+    callback: (info: { terminalId: string; provider: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: { terminalId: string; provider: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }
+    ): void => {
+      callback(info);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_SUBSCRIPTION_TOKEN, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_SUBSCRIPTION_TOKEN, handler);
+    };
+  },
+
   // Claude Profile Management
   getClaudeProfiles: (): Promise<IPCResult<ClaudeProfileSettings>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILES_GET),
@@ -251,8 +266,8 @@ export const createTerminalAPI = (): TerminalAPI => ({
   switchClaudeProfile: (terminalId: string, profileId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SWITCH, terminalId, profileId),
 
-  initializeClaudeProfile: (profileId: string): Promise<IPCResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE, profileId),
+  initializeClaudeProfile: (profileId: string, provider?: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE, profileId, provider),
 
   setClaudeProfileToken: (profileId: string, token: string, email?: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SET_TOKEN, profileId, token, email),

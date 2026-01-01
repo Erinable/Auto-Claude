@@ -5,6 +5,7 @@
 
 import * as OutputParser from './output-parser';
 import * as ClaudeIntegration from './claude-integration-handler';
+import * as SubscriptionIntegration from './subscription-integration-handler';
 import type { TerminalProcess, WindowGetter } from './types';
 
 /**
@@ -13,7 +14,7 @@ import type { TerminalProcess, WindowGetter } from './types';
 export interface EventHandlerCallbacks {
   onClaudeSessionId: (terminal: TerminalProcess, sessionId: string) => void;
   onRateLimit: (terminal: TerminalProcess, data: string) => void;
-  onOAuthToken: (terminal: TerminalProcess, data: string) => void;
+  onSubscriptionToken: (terminal: TerminalProcess, data: string) => void;
 }
 
 /**
@@ -37,8 +38,8 @@ export function handleTerminalData(
     callbacks.onRateLimit(terminal, data);
   }
 
-  // Check for OAuth token
-  callbacks.onOAuthToken(terminal, data);
+  // Check for subscription token
+  callbacks.onSubscriptionToken(terminal, data);
 }
 
 /**
@@ -62,8 +63,8 @@ export function createEventCallbacks(
         switchProfileCallback
       );
     },
-    onOAuthToken: (terminal, data) => {
-      ClaudeIntegration.handleOAuthToken(terminal, data, getWindow);
+    onSubscriptionToken: (terminal, data) => {
+      SubscriptionIntegration.handleSubscriptionToken(terminal, data, getWindow);
     }
   };
 }

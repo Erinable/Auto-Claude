@@ -214,6 +214,16 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
+  /** Listen for provider subscription token completion (token is auto-saved to provider config) */
+  onTerminalSubscriptionToken: (callback: (info: {
+    terminalId: string;
+    provider: string;
+    profileId?: string;
+    email?: string;
+    success: boolean;
+    message?: string;
+    detectedAt: string
+  }) => void) => () => void;
 
   // Claude profile management (multi-account support)
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -224,7 +234,7 @@ export interface ElectronAPI {
   /** Switch terminal to use a different Claude profile (restarts Claude with new config) */
   switchClaudeProfile: (terminalId: string, profileId: string) => Promise<IPCResult>;
   /** Initialize authentication for a Claude profile */
-  initializeClaudeProfile: (profileId: string) => Promise<IPCResult>;
+  initializeClaudeProfile: (profileId: string, provider?: string) => Promise<IPCResult>;
   /** Set OAuth token for a profile (used when capturing from terminal) */
   setClaudeProfileToken: (profileId: string, token: string, email?: string) => Promise<IPCResult>;
   /** Get auto-switch settings */
