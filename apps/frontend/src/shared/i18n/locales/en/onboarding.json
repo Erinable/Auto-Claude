@@ -29,10 +29,56 @@
     }
   },
   "oauth": {
-    "title": "Claude Authentication",
-    "description": "Connect your Claude account to enable AI features",
+    "title": "Subscription Authentication",
+    "description": "Connect your Claude, Codex, or Antigravity accounts to enable AI features",
     "keychainTitle": "Secure Storage",
-    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again."
+    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click "Always Allow" to avoid seeing it again.",
+    "multiAccountHint": "Add multiple subscriptions to automatically switch between them when you hit rate limits.",
+    "noAccountsYet": "No accounts configured yet",
+    "default": "Default",
+    "active": "Active",
+    "authenticated": "Authenticated",
+    "needsAuth": "Needs Auth",
+    "authenticate": "Authenticate",
+    "reauthenticate": "Re-authenticate account",
+    "setActive": "Set Active",
+    "manualTokenEntry": "Manual Token Entry",
+    "emailPlaceholder": "Email (optional, for display)",
+    "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "add": "Add",
+    "provider": "Provider",
+    "showTokenEntry": "Enter token manually",
+    "hideTokenEntry": "Hide token entry",
+    "renameAccount": "Rename account",
+    "deleteAccount": "Delete account",
+    "cancel": "Cancel",
+    "saveToken": "Save Token",
+    "authenticatedHint": "You have at least one authenticated subscription account. You can continue to the next step.",
+    "providers": {
+      "claude": {
+        "label": "Claude",
+        "description": "Use Claude Code OAuth tokens for multi-account switching.",
+        "tokenHint": "Run claude setup-token to get your token",
+        "tokenPlaceholder": "sk-ant-oat01-..."
+      },
+      "codex": {
+        "label": "Codex",
+        "description": "Paste your Codex API token to activate this account.",
+        "tokenHint": "Paste your Codex API token from the dashboard",
+        "tokenPlaceholder": "sk-codex-..."
+      },
+      "antigravity": {
+        "label": "Antigravity",
+        "description": "Paste your Antigravity access token to activate this account.",
+        "tokenHint": "Paste your Antigravity access token from the dashboard",
+        "tokenPlaceholder": "ag-..."
+      }
+    },
+    "errors": {
+      "invalidAccountName": "Account name must include at least one letter or number.",
+      "tokenRequired": "A token is required to authenticate {{provider}}."
+    }
+  },
   },
   "memory": {
     "title": "Memory",

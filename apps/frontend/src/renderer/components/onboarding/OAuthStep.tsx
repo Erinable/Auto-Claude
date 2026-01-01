@@ -26,7 +26,8 @@ import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import { cn } from '../../lib/utils';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
-import type { ClaudeProfile } from '../../../shared/types';
+import { useAppSettings } from '../../hooks/useIpc';
+import type { ClaudeProfile, SubscriptionAccount, SubscriptionProvider } from '../../../shared/types';
 
 interface OAuthStepProps {
   onNext: () => void;
@@ -41,17 +42,25 @@ interface OAuthStepProps {
  */
 export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
   const { t } = useTranslation('onboarding');
+  const { getSettings, saveSettings } = useAppSettings();
+  const providerOptions: SubscriptionProvider[] = ['claude', 'codex', 'antigravity'];
 
   // Claude Profiles state
   const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
   const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileProvider, setNewProfileProvider] = useState<SubscriptionProvider>('claude');
   const [isAddingProfile, setIsAddingProfile] = useState(false);
   const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingProfileName, setEditingProfileName] = useState('');
+  const [editingProfileProvider, setEditingProfileProvider] = useState<SubscriptionProvider | null>(null);
   const [authenticatingProfileId, setAuthenticatingProfileId] = useState<string | null>(null);
+  const [subscriptionAccounts, setSubscriptionAccounts] = useState<SubscriptionAccount[]>([]);
+  const [activeSubscriptionAccountIds, setActiveSubscriptionAccountIds] = useState<
+    Partial<Record<SubscriptionProvider, string>>
+  >({});
 
   // Manual token entry state
   const [expandedTokenProfileId, setExpandedTokenProfileId] = useState<string | null>(null);
@@ -66,7 +75,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
   // Derived state: check if at least one profile is authenticated
   const hasAuthenticatedProfile = claudeProfiles.some(
     (profile) => profile.oauthToken || (profile.isDefault && profile.configDir)
-  );
+  ) || subscriptionAccounts.some((account) => Boolean(account.token));
 
   // Reusable function to load Claude profiles
   const loadClaudeProfiles = async () => {
@@ -87,9 +96,31 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     }
   };
 
+  const loadSubscriptionAccounts = async () => {
+    try {
+      const settings = await getSettings();
+      if (settings) {
+        setSubscriptionAccounts(settings.subscriptionAccounts ?? []);
+        setActiveSubscriptionAccountIds(settings.activeSubscriptionAccountIds ?? {});
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load subscription accounts');
+    }
+  };
+
+  const updateSubscriptionSettings = async (
+    accounts: SubscriptionAccount[],
+    activeIds = activeSubscriptionAccountIds
+  ) => {
+    setSubscriptionAccounts(accounts);
+    setActiveSubscriptionAccountIds(activeIds);
+    await saveSettings({ subscriptionAccounts: accounts, activeSubscriptionAccountIds: activeIds });
+  };
+
   // Load Claude profiles on mount
   useEffect(() => {
     loadClaudeProfiles();
+    loadSubscriptionAccounts();
   }, []);
 
   // Listen for OAuth authentication completion
@@ -106,9 +137,35 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     return unsubscribe;
   }, []);
 
+  const getProviderLabel = (provider: SubscriptionProvider) =>
+    t(`oauth.providers.${provider}.label`);
+
+  const getProviderTokenHint = (provider: SubscriptionProvider) =>
+    t(`oauth.providers.${provider}.tokenHint`);
+
+  const getProviderTokenPlaceholder = (provider: SubscriptionProvider) =>
+    t(`oauth.providers.${provider}.tokenPlaceholder`);
+
   // Profile management handlers - following patterns from IntegrationSettings.tsx
   const handleAddProfile = async () => {
     if (!newProfileName.trim()) return;
+
+    if (newProfileProvider !== 'claude') {
+      const profileName = newProfileName.trim();
+      if (!profileName) {
+        setError(t('oauth.errors.invalidAccountName'));
+        return;
+      }
+      const newAccount: SubscriptionAccount = {
+        id: `account-${Date.now()}`,
+        name: profileName,
+        provider: newProfileProvider,
+        createdAt: new Date()
+      };
+      await updateSubscriptionSettings([...subscriptionAccounts, newAccount]);
+      setNewProfileName('');
+      return;
+    }
 
     setIsAddingProfile(true);
     setError(null);
@@ -123,7 +180,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
       // Validate that sanitized slug is not empty (e.g., "!!!" becomes "")
       if (!profileSlug) {
-        setError('Profile name must contain at least one letter or number');
+        setError(t('oauth.errors.invalidAccountName'));
         setIsAddingProfile(false);
         return;
       }
@@ -162,9 +219,19 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     }
   };
 
-  const handleDeleteProfile = async (profileId: string) => {
+  const handleDeleteProfile = async (profileId: string, provider: SubscriptionProvider) => {
     setDeletingProfileId(profileId);
     setError(null);
+    if (provider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.filter((account) => account.id !== profileId);
+      const nextActiveIds = { ...activeSubscriptionAccountIds };
+      if (nextActiveIds[provider] === profileId) {
+        delete nextActiveIds[provider];
+      }
+      await updateSubscriptionSettings(nextAccounts, nextActiveIds);
+      setDeletingProfileId(null);
+      return;
+    }
     try {
       const result = await window.electronAPI.deleteClaudeProfile(profileId);
       if (result.success) {
@@ -180,17 +247,38 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
   const startEditingProfile = (profile: ClaudeProfile) => {
     setEditingProfileId(profile.id);
     setEditingProfileName(profile.name);
+    setEditingProfileProvider('claude');
+  };
+
+  const startEditingSubscriptionAccount = (account: SubscriptionAccount) => {
+    setEditingProfileId(account.id);
+    setEditingProfileName(account.name);
+    setEditingProfileProvider(account.provider);
   };
 
   const cancelEditingProfile = () => {
     setEditingProfileId(null);
     setEditingProfileName('');
+    setEditingProfileProvider(null);
   };
 
   const handleRenameProfile = async () => {
     if (!editingProfileId || !editingProfileName.trim()) return;
 
     setError(null);
+    if (editingProfileProvider && editingProfileProvider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.map((account) =>
+        account.id === editingProfileId
+          ? { ...account, name: editingProfileName.trim() }
+          : account
+      );
+      await updateSubscriptionSettings(nextAccounts);
+      setEditingProfileId(null);
+      setEditingProfileName('');
+      setEditingProfileProvider(null);
+      return;
+    }
+
     try {
       const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
       if (result.success) {
@@ -201,11 +289,17 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     } finally {
       setEditingProfileId(null);
       setEditingProfileName('');
+      setEditingProfileProvider(null);
     }
   };
 
-  const handleSetActiveProfile = async (profileId: string) => {
+  const handleSetActiveProfile = async (profileId: string, provider: SubscriptionProvider) => {
     setError(null);
+    if (provider !== 'claude') {
+      const nextActiveIds = { ...activeSubscriptionAccountIds, [provider]: profileId };
+      await updateSubscriptionSettings(subscriptionAccounts, nextActiveIds);
+      return;
+    }
     try {
       const result = await window.electronAPI.setActiveClaudeProfile(profileId);
       if (result.success) {
@@ -217,7 +311,12 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     }
   };
 
-  const handleAuthenticateProfile = async (profileId: string) => {
+  const handleAuthenticateProfile = async (profileId: string, provider: SubscriptionProvider) => {
+    if (provider !== 'claude') {
+      toggleTokenEntry(profileId);
+      return;
+    }
+
     setAuthenticatingProfileId(profileId);
     setError(null);
     try {
@@ -253,11 +352,34 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     }
   };
 
-  const handleSaveManualToken = async (profileId: string) => {
-    if (!manualToken.trim()) return;
+  const handleSaveManualToken = async (profileId: string, provider: SubscriptionProvider) => {
+    if (!manualToken.trim()) {
+      setError(t('oauth.errors.tokenRequired', { provider: getProviderLabel(provider) }));
+      return;
+    }
 
     setSavingTokenProfileId(profileId);
     setError(null);
+    if (provider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.map((account) =>
+        account.id === profileId
+          ? {
+            ...account,
+            token: manualToken.trim(),
+            email: manualTokenEmail.trim() || undefined,
+            tokenCreatedAt: new Date()
+          }
+          : account
+      );
+      await updateSubscriptionSettings(nextAccounts);
+      setExpandedTokenProfileId(null);
+      setManualToken('');
+      setManualTokenEmail('');
+      setShowManualToken(false);
+      setSavingTokenProfileId(null);
+      return;
+    }
+
     try {
       const result = await window.electronAPI.setClaudeProfileToken(
         profileId,
@@ -281,6 +403,46 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     }
   };
 
+  type AccountEntry = {
+    id: string;
+    name: string;
+    email?: string;
+    provider: SubscriptionProvider;
+    type: 'claude' | 'subscription';
+    isDefault: boolean;
+    isActive: boolean;
+    isAuthenticated: boolean;
+    profile?: ClaudeProfile;
+    account?: SubscriptionAccount;
+  };
+
+  const accountEntries: AccountEntry[] = [
+    ...claudeProfiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      provider: 'claude' as const,
+      type: 'claude' as const,
+      isDefault: profile.isDefault,
+      isActive: profile.id === activeProfileId,
+      isAuthenticated: Boolean(profile.oauthToken || (profile.isDefault && profile.configDir)),
+      profile
+    })),
+    ...subscriptionAccounts
+      .filter((account) => account.provider !== 'claude')
+      .map((account) => ({
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        provider: account.provider,
+        type: 'subscription' as const,
+        isDefault: false,
+        isActive: activeSubscriptionAccountIds[account.provider] === account.id,
+        isAuthenticated: Boolean(account.token),
+        account
+      }))
+  ];
+
   const handleContinue = () => {
     onNext();
   };
@@ -296,10 +458,10 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Configure Claude Authentication
+            {t('oauth.title')}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Add your Claude accounts to enable AI features
+            {t('oauth.description')}
           </p>
         </div>
 
@@ -332,7 +494,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                   <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">
-                      Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.
+                      {t('oauth.multiAccountHint')}
                     </p>
                   </div>
                 </div>
@@ -360,37 +522,37 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
             {/* Profile list */}
             <div className="rounded-lg bg-muted/30 border border-border p-4">
-              {claudeProfiles.length === 0 ? (
+              {accountEntries.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
-                  <p className="text-sm text-muted-foreground">No accounts configured yet</p>
+                  <p className="text-sm text-muted-foreground">{t('oauth.noAccountsYet')}</p>
                 </div>
               ) : (
                 <div className="space-y-2 mb-4">
-                  {claudeProfiles.map((profile) => (
+                  {accountEntries.map((entry) => (
                     <div
-                      key={profile.id}
+                      key={entry.id}
                       className={cn(
                         "rounded-lg border transition-colors",
-                        profile.id === activeProfileId
+                        entry.isActive
                           ? "border-primary bg-primary/5"
                           : "border-border bg-background"
                       )}
                     >
                       <div className={cn(
                         "flex items-center justify-between p-3",
-                        expandedTokenProfileId !== profile.id && "hover:bg-muted/50"
+                        expandedTokenProfileId !== entry.id && "hover:bg-muted/50"
                       )}>
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
-                            profile.id === activeProfileId
+                            entry.isActive
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground"
                           )}>
-                            {(editingProfileId === profile.id ? editingProfileName : profile.name).charAt(0).toUpperCase()}
+                            {(editingProfileId === entry.id ? editingProfileName : entry.name).charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            {editingProfileId === profile.id ? (
+                            {editingProfileId === entry.id ? (
                               <div className="flex items-center gap-2">
                                 <Input
                                   value={editingProfileName}
@@ -422,73 +584,89 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                             ) : (
                               <>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm font-medium text-foreground">{profile.name}</span>
-                                  {profile.isDefault && (
-                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Default</span>
+                                  <span className="text-sm font-medium text-foreground">{entry.name}</span>
+                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                    {getProviderLabel(entry.provider)}
+                                  </span>
+                                  {entry.isDefault && (
+                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('oauth.default')}</span>
                                   )}
-                                  {profile.id === activeProfileId && (
+                                  {entry.isActive && (
                                     <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                       <Star className="h-3 w-3" />
-                                      Active
+                                      {t('oauth.active')}
                                     </span>
                                   )}
-                                  {(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
+                                  {entry.isAuthenticated ? (
                                     <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
                                       <Check className="h-3 w-3" />
-                                      Authenticated
+                                      {t('oauth.authenticated')}
                                     </span>
                                   ) : (
                                     <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
-                                      Needs Auth
+                                      {t('oauth.needsAuth')}
                                     </span>
                                   )}
                                 </div>
-                                {profile.email && (
-                                  <span className="text-xs text-muted-foreground">{profile.email}</span>
+                                {entry.email && (
+                                  <span className="text-xs text-muted-foreground">{entry.email}</span>
                                 )}
                               </>
                             )}
                           </div>
                         </div>
-                        {editingProfileId !== profile.id && (
+                        {editingProfileId !== entry.id && (
                           <div className="flex items-center gap-1">
-                            {/* Authenticate button - show if not authenticated */}
-                            {!profile.oauthToken && (
+                            {!entry.isAuthenticated ? (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleAuthenticateProfile(profile.id)}
-                                disabled={authenticatingProfileId === profile.id}
+                                onClick={() => handleAuthenticateProfile(entry.id, entry.provider)}
+                                disabled={authenticatingProfileId === entry.id}
                                 className="gap-1 h-7 text-xs"
                               >
-                                {authenticatingProfileId === profile.id ? (
+                                {authenticatingProfileId === entry.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
                                   <LogIn className="h-3 w-3" />
                                 )}
-                                Authenticate
+                                {t('oauth.authenticate')}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleAuthenticateProfile(entry.id, entry.provider)}
+                                disabled={authenticatingProfileId === entry.id}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                title={t('oauth.reauthenticate')}
+                              >
+                                {authenticatingProfileId === entry.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <LogIn className="h-3 w-3" />
+                                )}
                               </Button>
                             )}
-                            {profile.id !== activeProfileId && (
+                            {!entry.isActive && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleSetActiveProfile(profile.id)}
+                                onClick={() => handleSetActiveProfile(entry.id, entry.provider)}
                                 className="gap-1 h-7 text-xs"
                               >
                                 <Check className="h-3 w-3" />
-                                Set Active
+                                {t('oauth.setActive')}
                               </Button>
                             )}
-                            {/* Toggle token entry button */}
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => toggleTokenEntry(profile.id)}
+                              onClick={() => toggleTokenEntry(entry.id)}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title={expandedTokenProfileId === profile.id ? "Hide token entry" : "Enter token manually"}
+                              title={expandedTokenProfileId === entry.id ? t('oauth.hideTokenEntry') : t('oauth.showTokenEntry')}
                             >
-                              {expandedTokenProfileId === profile.id ? (
+                              {expandedTokenProfileId === entry.id ? (
                                 <ChevronDown className="h-3 w-3" />
                               ) : (
                                 <ChevronRight className="h-3 w-3" />
@@ -497,22 +675,28 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => startEditingProfile(profile)}
+                              onClick={() => {
+                                if (entry.type === 'claude' && entry.profile) {
+                                  startEditingProfile(entry.profile);
+                                } else if (entry.account) {
+                                  startEditingSubscriptionAccount(entry.account);
+                                }
+                              }}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title="Rename profile"
+                              title={t('oauth.renameAccount')}
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            {!profile.isDefault && (
+                            {!entry.isDefault && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleDeleteProfile(profile.id)}
-                                disabled={deletingProfileId === profile.id}
+                                onClick={() => handleDeleteProfile(entry.id, entry.provider)}
+                                disabled={deletingProfileId === entry.id}
                                 className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                title="Delete profile"
+                                title={t('oauth.deleteAccount')}
                               >
-                                {deletingProfileId === profile.id ? (
+                                {deletingProfileId === entry.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
                                   <Trash2 className="h-3 w-3" />
@@ -523,16 +707,15 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                         )}
                       </div>
 
-                      {/* Expanded token entry section */}
-                      {expandedTokenProfileId === profile.id && (
+                      {expandedTokenProfileId === entry.id && (
                         <div className="px-3 pb-3 pt-0 border-t border-border/50 mt-0">
                           <div className="bg-muted/30 rounded-lg p-3 mt-3 space-y-3">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs font-medium text-muted-foreground">
-                                Manual Token Entry
+                                {t('oauth.manualTokenEntry')}
                               </Label>
                               <span className="text-xs text-muted-foreground">
-                                Run <code className="px-1 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code> to get your token
+                                {getProviderTokenHint(entry.provider)}
                               </span>
                             </div>
 
@@ -540,7 +723,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                               <div className="relative">
                                 <Input
                                   type={showManualToken ? 'text' : 'password'}
-                                  placeholder="sk-ant-oat01-..."
+                                  placeholder={getProviderTokenPlaceholder(entry.provider)}
                                   value={manualToken}
                                   onChange={(e) => setManualToken(e.target.value)}
                                   className="pr-10 font-mono text-xs h-8"
@@ -556,7 +739,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
                               <Input
                                 type="email"
-                                placeholder="Email (optional, for display)"
+                                placeholder={t('oauth.emailPlaceholder')}
                                 value={manualTokenEmail}
                                 onChange={(e) => setManualTokenEmail(e.target.value)}
                                 className="text-xs h-8"
@@ -567,23 +750,23 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => toggleTokenEntry(profile.id)}
+                                onClick={() => toggleTokenEntry(entry.id)}
                                 className="h-7 text-xs"
                               >
-                                Cancel
+                                {t('oauth.cancel')}
                               </Button>
                               <Button
                                 size="sm"
-                                onClick={() => handleSaveManualToken(profile.id)}
-                                disabled={!manualToken.trim() || savingTokenProfileId === profile.id}
+                                onClick={() => handleSaveManualToken(entry.id, entry.provider)}
+                                disabled={!manualToken.trim() || savingTokenProfileId === entry.id}
                                 className="h-7 text-xs gap-1"
                               >
-                                {savingTokenProfileId === profile.id ? (
+                                {savingTokenProfileId === entry.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
                                   <Check className="h-3 w-3" />
                                 )}
-                                Save Token
+                                {t('oauth.saveToken')}
                               </Button>
                             </div>
                           </div>
@@ -596,8 +779,20 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
               {/* Add new account input */}
               <div className="flex items-center gap-2">
+                <select
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                  value={newProfileProvider}
+                  onChange={(e) => setNewProfileProvider(e.target.value as SubscriptionProvider)}
+                  aria-label={t('oauth.provider')}
+                >
+                  {providerOptions.map((provider) => (
+                    <option key={provider} value={provider}>
+                      {getProviderLabel(provider)}
+                    </option>
+                  ))}
+                </select>
                 <Input
-                  placeholder="Account name (e.g., Work, Personal)"
+                  placeholder={t('oauth.accountNamePlaceholder')}
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
                   className="flex-1 h-8 text-sm"
@@ -618,9 +813,12 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                   ) : (
                     <Plus className="h-3 w-3" />
                   )}
-                  Add
+                  {t('oauth.add')}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {t(`oauth.providers.${newProfileProvider}.description`)}
+              </p>
             </div>
 
             {/* Success state when profiles are authenticated */}
@@ -630,7 +828,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
                     <p className="text-sm text-success">
-                      You have at least one authenticated Claude account. You can continue to the next step.
+                      {t('oauth.authenticatedHint')}
                     </p>
                   </div>
                 </CardContent>

@@ -4,6 +4,7 @@
 
 import type { NotificationSettings } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
+import type { SubscriptionAccount, SubscriptionProvider } from './agent';
 import type { SupportedLanguage } from '../constants/i18n';
 
 // Color theme types for multi-theme support
@@ -234,6 +235,9 @@ export interface AppSettings {
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;
   globalOpenRouterApiKey?: string;
+  // Subscription accounts across providers
+  subscriptionAccounts?: SubscriptionAccount[];
+  activeSubscriptionAccountIds?: Partial<Record<SubscriptionProvider, string>>;
   // Graphiti LLM provider settings
   graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
   ollamaBaseUrl?: string;

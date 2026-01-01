@@ -29,10 +29,56 @@
     }
   },
   "oauth": {
-    "title": "Authentification Claude",
-    "description": "Connectez votre compte Claude pour activer les fonctionnalités IA",
+    "title": "Authentification des abonnements",
+    "description": "Connectez vos comptes Claude, Codex ou Antigravity pour activer les fonctionnalités IA",
     "keychainTitle": "Stockage sécurisé",
-    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir."
+    "keychainDescription": "Vos jetons sont chiffrés via le trousseau du système. Vous pouvez voir une demande de mot de passe sur macOS — cliquez sur "Toujours autoriser" pour ne plus la voir.",
+    "multiAccountHint": "Ajoutez plusieurs abonnements pour basculer automatiquement lorsque vous atteignez les limites.",
+    "noAccountsYet": "Aucun compte configuré",
+    "default": "Par défaut",
+    "active": "Actif",
+    "authenticated": "Authentifié",
+    "needsAuth": "Authentification requise",
+    "authenticate": "Authentifier",
+    "reauthenticate": "Ré-authentifier le compte",
+    "setActive": "Activer",
+    "manualTokenEntry": "Saisie manuelle du jeton",
+    "emailPlaceholder": "E-mail (optionnel, pour l’affichage)",
+    "accountNamePlaceholder": "Nom du compte (ex. Travail, Personnel)",
+    "add": "Ajouter",
+    "provider": "Fournisseur",
+    "showTokenEntry": "Saisir le jeton manuellement",
+    "hideTokenEntry": "Masquer la saisie du jeton",
+    "renameAccount": "Renommer le compte",
+    "deleteAccount": "Supprimer le compte",
+    "cancel": "Annuler",
+    "saveToken": "Enregistrer le jeton",
+    "authenticatedHint": "Vous avez au moins un compte d’abonnement authentifié. Vous pouvez passer à l’étape suivante.",
+    "providers": {
+      "claude": {
+        "label": "Claude",
+        "description": "Utilisez des jetons OAuth Claude Code pour le multi-compte.",
+        "tokenHint": "Exécutez claude setup-token pour obtenir votre jeton",
+        "tokenPlaceholder": "sk-ant-oat01-..."
+      },
+      "codex": {
+        "label": "Codex",
+        "description": "Collez votre jeton API Codex pour activer ce compte.",
+        "tokenHint": "Collez votre jeton API Codex depuis le tableau de bord",
+        "tokenPlaceholder": "sk-codex-..."
+      },
+      "antigravity": {
+        "label": "Antigravity",
+        "description": "Collez votre jeton d’accès Antigravity pour activer ce compte.",
+        "tokenHint": "Collez votre jeton d’accès Antigravity depuis le tableau de bord",
+        "tokenPlaceholder": "ag-..."
+      }
+    },
+    "errors": {
+      "invalidAccountName": "Le nom du compte doit contenir au moins une lettre ou un chiffre.",
+      "tokenRequired": "Un jeton est requis pour authentifier {{provider}}."
+    }
+  },
   },
   "memory": {
     "title": "Mémoire",

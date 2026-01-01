@@ -27,7 +27,13 @@ import { Switch } from '../ui/switch';
 import { cn } from '../../lib/utils';
 import { SettingsSection } from './SettingsSection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
-import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings } from '../../../shared/types';
+import type {
+  AppSettings,
+  ClaudeProfile,
+  ClaudeAutoSwitchSettings,
+  SubscriptionAccount,
+  SubscriptionProvider
+} from '../../../shared/types';
 
 interface IntegrationSettingsProps {
   settings: AppSettings;
@@ -44,21 +50,31 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   // Password visibility toggle for global API keys
   const [showGlobalOpenAIKey, setShowGlobalOpenAIKey] = useState(false);
 
+  const providerOptions: SubscriptionProvider[] = ['claude', 'codex', 'antigravity'];
+
   // Claude Accounts state
   const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileProvider, setNewProfileProvider] = useState<SubscriptionProvider>('claude');
   const [isAddingProfile, setIsAddingProfile] = useState(false);
   const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingProfileName, setEditingProfileName] = useState('');
+  const [editingProfileProvider, setEditingProfileProvider] = useState<SubscriptionProvider | null>(null);
   const [authenticatingProfileId, setAuthenticatingProfileId] = useState<string | null>(null);
   const [expandedTokenProfileId, setExpandedTokenProfileId] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState('');
   const [manualTokenEmail, setManualTokenEmail] = useState('');
   const [showManualToken, setShowManualToken] = useState(false);
   const [savingTokenProfileId, setSavingTokenProfileId] = useState<string | null>(null);
+  const [subscriptionAccounts, setSubscriptionAccounts] = useState<SubscriptionAccount[]>(
+    settings.subscriptionAccounts ?? []
+  );
+  const [activeSubscriptionAccountIds, setActiveSubscriptionAccountIds] = useState<
+    Partial<Record<SubscriptionProvider, string>>
+  >(settings.activeSubscriptionAccountIds ?? {});
 
   // Auto-swap settings state
   const [autoSwitchSettings, setAutoSwitchSettings] = useState<ClaudeAutoSwitchSettings | null>(null);
@@ -86,6 +102,33 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    setSubscriptionAccounts(settings.subscriptionAccounts ?? []);
+    setActiveSubscriptionAccountIds(settings.activeSubscriptionAccountIds ?? {});
+  }, [settings.subscriptionAccounts, settings.activeSubscriptionAccountIds]);
+
+  const getProviderLabel = (provider: SubscriptionProvider) =>
+    t(`integrations.providers.${provider}.label`);
+
+  const getProviderTokenHint = (provider: SubscriptionProvider) =>
+    t(`integrations.providers.${provider}.tokenHint`);
+
+  const getProviderTokenPlaceholder = (provider: SubscriptionProvider) =>
+    t(`integrations.providers.${provider}.tokenPlaceholder`);
+
+  const updateSubscriptionSettings = (
+    accounts: SubscriptionAccount[],
+    activeIds = activeSubscriptionAccountIds
+  ) => {
+    setSubscriptionAccounts(accounts);
+    setActiveSubscriptionAccountIds(activeIds);
+    onSettingsChange({
+      ...settings,
+      subscriptionAccounts: accounts,
+      activeSubscriptionAccountIds: activeIds
+    });
+  };
+
   const loadClaudeProfiles = async () => {
     setIsLoadingProfiles(true);
     try {
@@ -105,6 +148,18 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
 
   const handleAddProfile = async () => {
     if (!newProfileName.trim()) return;
+
+    if (newProfileProvider !== 'claude') {
+      const newAccount: SubscriptionAccount = {
+        id: `account-${Date.now()}`,
+        name: newProfileName.trim(),
+        provider: newProfileProvider,
+        createdAt: new Date()
+      };
+      updateSubscriptionSettings([...subscriptionAccounts, newAccount]);
+      setNewProfileName('');
+      return;
+    }
 
     setIsAddingProfile(true);
     try {
@@ -145,8 +200,19 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     }
   };
 
-  const handleDeleteProfile = async (profileId: string) => {
+  const handleDeleteProfile = async (profileId: string, provider: SubscriptionProvider) => {
     setDeletingProfileId(profileId);
+    if (provider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.filter((account) => account.id !== profileId);
+      const nextActiveIds = { ...activeSubscriptionAccountIds };
+      if (nextActiveIds[provider] === profileId) {
+        delete nextActiveIds[provider];
+      }
+      updateSubscriptionSettings(nextAccounts, nextActiveIds);
+      setDeletingProfileId(null);
+      return;
+    }
+
     try {
       const result = await window.electronAPI.deleteClaudeProfile(profileId);
       if (result.success) {
@@ -162,15 +228,36 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   const startEditingProfile = (profile: ClaudeProfile) => {
     setEditingProfileId(profile.id);
     setEditingProfileName(profile.name);
+    setEditingProfileProvider('claude');
+  };
+
+  const startEditingSubscriptionAccount = (account: SubscriptionAccount) => {
+    setEditingProfileId(account.id);
+    setEditingProfileName(account.name);
+    setEditingProfileProvider(account.provider);
   };
 
   const cancelEditingProfile = () => {
     setEditingProfileId(null);
     setEditingProfileName('');
+    setEditingProfileProvider(null);
   };
 
   const handleRenameProfile = async () => {
     if (!editingProfileId || !editingProfileName.trim()) return;
+
+    if (editingProfileProvider && editingProfileProvider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.map((account) =>
+        account.id === editingProfileId
+          ? { ...account, name: editingProfileName.trim() }
+          : account
+      );
+      updateSubscriptionSettings(nextAccounts);
+      setEditingProfileId(null);
+      setEditingProfileName('');
+      setEditingProfileProvider(null);
+      return;
+    }
 
     try {
       const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
@@ -182,10 +269,17 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     } finally {
       setEditingProfileId(null);
       setEditingProfileName('');
+      setEditingProfileProvider(null);
     }
   };
 
-  const handleSetActiveProfile = async (profileId: string) => {
+  const handleSetActiveProfile = async (profileId: string, provider: SubscriptionProvider) => {
+    if (provider !== 'claude') {
+      const nextActiveIds = { ...activeSubscriptionAccountIds, [provider]: profileId };
+      updateSubscriptionSettings(subscriptionAccounts, nextActiveIds);
+      return;
+    }
+
     try {
       const result = await window.electronAPI.setActiveClaudeProfile(profileId);
       if (result.success) {
@@ -197,7 +291,12 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     }
   };
 
-  const handleAuthenticateProfile = async (profileId: string) => {
+  const handleAuthenticateProfile = async (profileId: string, provider: SubscriptionProvider) => {
+    if (provider !== 'claude') {
+      toggleTokenEntry(profileId);
+      return;
+    }
+
     setAuthenticatingProfileId(profileId);
     try {
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
@@ -232,10 +331,30 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     }
   };
 
-  const handleSaveManualToken = async (profileId: string) => {
+  const handleSaveManualToken = async (profileId: string, provider: SubscriptionProvider) => {
     if (!manualToken.trim()) return;
 
     setSavingTokenProfileId(profileId);
+    if (provider !== 'claude') {
+      const nextAccounts = subscriptionAccounts.map((account) =>
+        account.id === profileId
+          ? {
+            ...account,
+            token: manualToken.trim(),
+            email: manualTokenEmail.trim() || undefined,
+            tokenCreatedAt: new Date()
+          }
+          : account
+      );
+      updateSubscriptionSettings(nextAccounts);
+      setExpandedTokenProfileId(null);
+      setManualToken('');
+      setManualTokenEmail('');
+      setShowManualToken(false);
+      setSavingTokenProfileId(null);
+      return;
+    }
+
     try {
       const result = await window.electronAPI.setClaudeProfileToken(
         profileId,
@@ -292,6 +411,46 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     }
   };
 
+  type AccountEntry = {
+    id: string;
+    name: string;
+    email?: string;
+    provider: SubscriptionProvider;
+    type: 'claude' | 'subscription';
+    isDefault: boolean;
+    isActive: boolean;
+    isAuthenticated: boolean;
+    profile?: ClaudeProfile;
+    account?: SubscriptionAccount;
+  };
+
+  const accountEntries: AccountEntry[] = [
+    ...claudeProfiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      provider: 'claude' as const,
+      type: 'claude' as const,
+      isDefault: profile.isDefault,
+      isActive: profile.id === activeProfileId,
+      isAuthenticated: Boolean(profile.oauthToken || (profile.isDefault && profile.configDir)),
+      profile
+    })),
+    ...subscriptionAccounts
+      .filter((account) => account.provider !== 'claude')
+      .map((account) => ({
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        provider: account.provider,
+        type: 'subscription' as const,
+        isDefault: false,
+        isActive: activeSubscriptionAccountIds[account.provider] === account.id,
+        isAuthenticated: Boolean(account.token),
+        account
+      }))
+  ];
+
   return (
     <SettingsSection
       title={t('integrations.title')}
@@ -302,12 +461,12 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <h4 className="text-sm font-semibold text-foreground">{t('integrations.claudeAccounts')}</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t('integrations.subscriptionAccounts')}</h4>
           </div>
 
           <div className="rounded-lg bg-muted/30 border border-border p-4">
             <p className="text-sm text-muted-foreground mb-4">
-              {t('integrations.claudeAccountsDescription')}
+              {t('integrations.subscriptionAccountsDescription')}
             </p>
 
             {/* Accounts list */}
@@ -315,37 +474,37 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : claudeProfiles.length === 0 ? (
+            ) : accountEntries.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
                 <p className="text-sm text-muted-foreground">{t('integrations.noAccountsYet')}</p>
               </div>
             ) : (
               <div className="space-y-2 mb-4">
-                {claudeProfiles.map((profile) => (
+                {accountEntries.map((entry) => (
                   <div
-                    key={profile.id}
+                    key={entry.id}
                     className={cn(
                       "rounded-lg border transition-colors",
-                      profile.id === activeProfileId
+                      entry.isActive
                         ? "border-primary bg-primary/5"
                         : "border-border bg-background"
                     )}
                   >
                     <div className={cn(
                       "flex items-center justify-between p-3",
-                      expandedTokenProfileId !== profile.id && "hover:bg-muted/50"
+                      expandedTokenProfileId !== entry.id && "hover:bg-muted/50"
                     )}>
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
-                          profile.id === activeProfileId
+                          entry.isActive
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-muted-foreground"
                         )}>
-                          {(editingProfileId === profile.id ? editingProfileName : profile.name).charAt(0).toUpperCase()}
+                          {(editingProfileId === entry.id ? editingProfileName : entry.name).charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          {editingProfileId === profile.id ? (
+                          {editingProfileId === entry.id ? (
                             <div className="flex items-center gap-2">
                               <Input
                                 value={editingProfileName}
@@ -377,17 +536,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                           ) : (
                             <>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium text-foreground">{profile.name}</span>
-                                {profile.isDefault && (
+                                <span className="text-sm font-medium text-foreground">{entry.name}</span>
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                  {getProviderLabel(entry.provider)}
+                                </span>
+                                {entry.isDefault && (
                                   <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('integrations.default')}</span>
                                 )}
-                                {profile.id === activeProfileId && (
+                                {entry.isActive && (
                                   <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <Star className="h-3 w-3" />
                                     {t('integrations.active')}
                                   </span>
                                 )}
-                                {(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
+                                {entry.isAuthenticated ? (
                                   <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <Check className="h-3 w-3" />
                                     {t('integrations.authenticated')}
@@ -398,26 +560,24 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                                   </span>
                                 )}
                               </div>
-                              {profile.email && (
-                                <span className="text-xs text-muted-foreground">{profile.email}</span>
+                              {entry.email && (
+                                <span className="text-xs text-muted-foreground">{entry.email}</span>
                               )}
                             </>
                           )}
                         </div>
                       </div>
-                      {editingProfileId !== profile.id && (
+                      {editingProfileId !== entry.id && (
                         <div className="flex items-center gap-1">
-                          {/* Authenticate button - show only if NOT authenticated */}
-                          {/* A profile is authenticated if: has OAuth token OR (is default AND has configDir) */}
-                          {!(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
+                          {!entry.isAuthenticated ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleAuthenticateProfile(profile.id)}
-                              disabled={authenticatingProfileId === profile.id}
+                              onClick={() => handleAuthenticateProfile(entry.id, entry.provider)}
+                              disabled={authenticatingProfileId === entry.id}
                               className="gap-1 h-7 text-xs"
                             >
-                              {authenticatingProfileId === profile.id ? (
+                              {authenticatingProfileId === entry.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <LogIn className="h-3 w-3" />
@@ -425,42 +585,40 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               {t('integrations.authenticate')}
                             </Button>
                           ) : (
-                            /* Re-authenticate button for already authenticated profiles */
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleAuthenticateProfile(profile.id)}
-                              disabled={authenticatingProfileId === profile.id}
+                              onClick={() => handleAuthenticateProfile(entry.id, entry.provider)}
+                              disabled={authenticatingProfileId === entry.id}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title="Re-authenticate profile"
+                              title={t('integrations.reauthenticate')}
                             >
-                              {authenticatingProfileId === profile.id ? (
+                              {authenticatingProfileId === entry.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <RefreshCw className="h-3 w-3" />
                               )}
                             </Button>
                           )}
-                          {profile.id !== activeProfileId && (
+                          {!entry.isActive && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleSetActiveProfile(profile.id)}
+                              onClick={() => handleSetActiveProfile(entry.id, entry.provider)}
                               className="gap-1 h-7 text-xs"
                             >
                               <Check className="h-3 w-3" />
                               {t('integrations.setActive')}
                             </Button>
                           )}
-                          {/* Toggle token entry button */}
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => toggleTokenEntry(profile.id)}
+                            onClick={() => toggleTokenEntry(entry.id)}
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title={expandedTokenProfileId === profile.id ? "Hide token entry" : "Enter token manually"}
+                            title={expandedTokenProfileId === entry.id ? t('integrations.hideTokenEntry') : t('integrations.showTokenEntry')}
                           >
-                            {expandedTokenProfileId === profile.id ? (
+                            {expandedTokenProfileId === entry.id ? (
                               <ChevronDown className="h-3 w-3" />
                             ) : (
                               <ChevronRight className="h-3 w-3" />
@@ -469,22 +627,28 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => startEditingProfile(profile)}
+                            onClick={() => {
+                              if (entry.type === 'claude' && entry.profile) {
+                                startEditingProfile(entry.profile);
+                              } else if (entry.account) {
+                                startEditingSubscriptionAccount(entry.account);
+                              }
+                            }}
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Rename profile"
+                            title={t('integrations.renameAccount')}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          {!profile.isDefault && (
+                          {!entry.isDefault && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteProfile(profile.id)}
-                              disabled={deletingProfileId === profile.id}
+                              onClick={() => handleDeleteProfile(entry.id, entry.provider)}
+                              disabled={deletingProfileId === entry.id}
                               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Delete profile"
+                              title={t('integrations.deleteAccount')}
                             >
-                              {deletingProfileId === profile.id ? (
+                              {deletingProfileId === entry.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <Trash2 className="h-3 w-3" />
@@ -495,8 +659,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                       )}
                     </div>
 
-                    {/* Expanded token entry section */}
-                    {expandedTokenProfileId === profile.id && (
+                    {expandedTokenProfileId === entry.id && (
                       <div className="px-3 pb-3 pt-0 border-t border-border/50 mt-0">
                         <div className="bg-muted/30 rounded-lg p-3 mt-3 space-y-3">
                           <div className="flex items-center justify-between">
@@ -504,7 +667,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               {t('integrations.manualTokenEntry')}
                             </Label>
                             <span className="text-xs text-muted-foreground">
-                              {t('integrations.runSetupToken')}
+                              {getProviderTokenHint(entry.provider)}
                             </span>
                           </div>
 
@@ -512,7 +675,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             <div className="relative">
                               <Input
                                 type={showManualToken ? 'text' : 'password'}
-                                placeholder={t('integrations.tokenPlaceholder')}
+                                placeholder={getProviderTokenPlaceholder(entry.provider)}
                                 value={manualToken}
                                 onChange={(e) => setManualToken(e.target.value)}
                                 className="pr-10 font-mono text-xs h-8"
@@ -539,18 +702,18 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleTokenEntry(profile.id)}
+                              onClick={() => toggleTokenEntry(entry.id)}
                               className="h-7 text-xs"
                             >
                               {tCommon('buttons.cancel')}
                             </Button>
                             <Button
                               size="sm"
-                              onClick={() => handleSaveManualToken(profile.id)}
-                              disabled={!manualToken.trim() || savingTokenProfileId === profile.id}
+                              onClick={() => handleSaveManualToken(entry.id, entry.provider)}
+                              disabled={!manualToken.trim() || savingTokenProfileId === entry.id}
                               className="h-7 text-xs gap-1"
                             >
-                              {savingTokenProfileId === profile.id ? (
+                              {savingTokenProfileId === entry.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <Check className="h-3 w-3" />
@@ -568,6 +731,18 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
 
             {/* Add new account */}
             <div className="flex items-center gap-2">
+              <select
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                value={newProfileProvider}
+                onChange={(e) => setNewProfileProvider(e.target.value as SubscriptionProvider)}
+                aria-label={t('integrations.provider')}
+              >
+                {providerOptions.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {getProviderLabel(provider)}
+                  </option>
+                ))}
+              </select>
               <Input
                 placeholder={t('integrations.accountNamePlaceholder')}
                 value={newProfileName}
@@ -593,6 +768,9 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                 {tCommon('buttons.add')}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t(`integrations.providers.${newProfileProvider}.description`)}
+            </p>
           </div>
         </div>
 

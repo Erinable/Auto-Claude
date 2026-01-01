@@ -30,252 +30,17 @@
       "description": "CLI tools and framework paths"
     },
     "integrations": {
-      "title": "Integrations",
-      "description": "API keys & Claude accounts"
-    },
-    "updates": {
-      "title": "Updates",
-      "description": "Auto Claude updates"
-    },
-    "notifications": {
-      "title": "Notifications",
-      "description": "Alert preferences"
-    },
-    "debug": {
-      "title": "Debug & Logs",
-      "description": "Troubleshooting tools"
-    }
-  },
-  "language": {
-    "label": "Interface Language",
-    "description": "Select the language for the application interface"
-  },
-  "scale": {
-    "presets": "Scale Presets",
-    "presetsDescription": "Quick scale options for common preferences",
-    "fineTune": "Fine-tune Scale",
-    "fineTuneDescription": "Adjust from 75% to 200% in 5% increments",
-    "default": "Default",
-    "comfortable": "Comfortable",
-    "large": "Large"
-  },
-  "general": {
-    "otherAgentSettings": "Other Agent Settings",
-    "otherAgentSettingsDescription": "Additional agent configuration options",
-    "agentFramework": "Agent Framework",
-    "agentFrameworkDescription": "The coding framework used for autonomous tasks",
-    "agentFrameworkAutoClaude": "Auto Claude",
-    "aiTerminalNaming": "AI Terminal Naming",
-    "aiTerminalNamingDescription": "Automatically name terminals based on commands (uses Haiku)",
-    "featureModelSettings": "Feature Model Settings",
-    "featureModelSettingsDescription": "Model and thinking level for Insights, Ideation, and Roadmap",
-    "model": "Model",
-    "thinkingLevel": "Thinking Level",
-    "paths": "Paths",
-    "pathsDescription": "Configure executable and framework paths",
-    "pythonPath": "Python Path",
-    "pythonPathDescription": "Path to Python executable (leave empty for auto-detection)",
-    "pythonPathPlaceholder": "python3 (default)",
-    "gitPath": "Git Path",
-    "gitPathDescription": "Path to Git executable (leave empty for auto-detection)",
-    "gitPathPlaceholder": "git (default)",
-    "githubCLIPath": "GitHub CLI Path",
-    "githubCLIPathDescription": "Path to GitHub CLI (gh) executable (leave empty for auto-detection)",
-    "githubCLIPathPlaceholder": "gh (default)",
-    "claudePath": "Claude CLI Path",
-    "claudePathDescription": "Path to Claude CLI executable (leave empty for auto-detection)",
-    "claudePathPlaceholder": "claude (default)",
-    "detectedPath": "Auto-detected",
-    "detectedVersion": "Version",
-    "detectedSource": "Source",
-    "sourceUserConfig": "User Configuration",
-    "sourceVenv": "Virtual Environment",
-    "sourceHomebrew": "Homebrew",
-    "sourceSystemPath": "System PATH",
-    "sourceBundled": "Bundled",
-    "sourceFallback": "Fallback",
-    "notDetected": "Not detected",
-    "autoClaudePath": "Auto Claude Path",
-    "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
-    "autoClaudePathPlaceholder": "auto-claude (default)",
-    "autoNameTerminals": "Automatically name terminals",
-    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
-  },
-  "theme": {
-    "title": "Appearance",
-    "description": "Customize how Auto Claude looks",
-    "mode": "Mode",
-    "modeDescription": "Choose between light and dark themes",
-    "light": "Light",
-    "dark": "Dark",
-    "system": "System",
-    "colorTheme": "Color Theme",
-    "colorThemeDescription": "Choose your preferred color palette"
-  },
-  "devtools": {
-    "title": "Developer Tools",
-    "description": "Configure your preferred IDE and terminal for working with worktrees",
-    "detecting": "Detecting installed tools...",
-    "detectAgain": "Detect Again",
-    "ide": {
-      "label": "Preferred IDE",
-      "description": "Auto Claude will open worktrees in this editor",
-      "placeholder": "Select IDE...",
-      "customPath": "Custom IDE Path",
-      "customPathPlaceholder": "/path/to/your/ide"
-    },
-    "terminal": {
-      "label": "Preferred Terminal",
-      "description": "Auto Claude will open terminal sessions here",
-      "placeholder": "Select terminal...",
-      "customPath": "Custom Terminal Path",
-      "customPathPlaceholder": "/path/to/your/terminal"
-    },
-    "detected": "Detected",
-    "notInstalled": "Not installed",
-    "detectedSummary": "Detected on your system:",
-    "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)"
-  },
-  "updates": {
-    "title": "Updates",
-    "description": "Manage Auto Claude updates",
-    "appUpdateReady": "App Update Ready",
-    "newVersion": "New Version",
-    "released": "Released",
-    "downloading": "Downloading...",
-    "updateDownloaded": "Update downloaded! Click Install to restart and apply the update.",
-    "installAndRestart": "Install and Restart",
-    "downloadUpdate": "Download Update",
-    "version": "Version",
-    "loading": "Loading...",
-    "checkingForUpdates": "Checking for updates...",
-    "newVersionAvailable": "New version available:",
-    "latestVersion": "You're running the latest version.",
-    "viewRelease": "View full release on GitHub",
-    "unableToCheck": "Unable to check for updates",
-    "checkForUpdates": "Check for Updates",
-    "autoUpdateProjects": "Auto-Update Projects",
-    "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
-    "betaUpdates": "Beta Updates",
-    "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)"
-  },
-  "notifications": {
-    "title": "Notifications",
-    "description": "Configure default notification preferences",
-    "onTaskComplete": "On Task Complete",
-    "onTaskCompleteDescription": "Notify when a task finishes successfully",
-    "onTaskFailed": "On Task Failed",
-    "onTaskFailedDescription": "Notify when a task encounters an error",
-    "onReviewNeeded": "On Review Needed",
-    "onReviewNeededDescription": "Notify when QA requires your review",
-    "sound": "Sound",
-    "soundDescription": "Play sound with notifications"
-  },
-  "actions": {
-    "save": "Save Settings",
-    "rerunWizard": "Re-run Wizard",
-    "rerunWizardDescription": "Start the setup wizard again"
-  },
-  "projectSections": {
-    "general": {
-      "title": "General",
-      "description": "Auto-Build and agent config",
-      "useClaudeMd": "Use CLAUDE.md",
-      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
-    },
-    "claude": {
-      "title": "Claude Auth",
-      "description": "Claude authentication"
-    },
-    "linear": {
-      "title": "Linear",
-      "description": "Linear integration",
-      "integrationTitle": "Linear Integration",
-      "integrationDescription": "Connect to Linear for issue tracking and task import",
-      "syncDescription": "Sync with Linear for issue tracking"
-    },
-    "github": {
-      "title": "GitHub",
-      "description": "GitHub issues sync",
-      "integrationTitle": "GitHub Integration",
-      "integrationDescription": "Connect to GitHub for issue tracking",
-      "syncDescription": "Sync with GitHub Issues"
-    },
-    "gitlab": {
-      "title": "GitLab",
-      "description": "GitLab issues sync",
-      "integrationTitle": "GitLab Integration",
-      "integrationDescription": "Connect to GitLab for issue tracking",
-      "syncDescription": "Sync with GitLab Issues"
-    },
-    "memory": {
-      "title": "Memory",
-      "description": "Graphiti memory backend",
-      "integrationTitle": "Memory",
-      "integrationDescription": "Configure persistent cross-session memory for agents",
-      "syncDescription": "Configure persistent memory"
-    }
-  },
-  "agentProfile": {
-    "label": "Agent Profile",
-    "title": "Default Agent Profile",
-    "sectionDescription": "Select a preset configuration for model and thinking level",
-    "profilesInfo": "Agent profiles provide preset configurations for Claude model and thinking level. When you create a new task, these settings will be used as defaults. You can always override them in the task creation wizard.",
-    "custom": "Custom",
-    "customConfiguration": "Custom Configuration",
-    "customDescription": "Choose model & thinking level",
-    "phaseConfiguration": "Phase Configuration",
-    "phaseConfigurationDescription": "Customize model and thinking level for each phase",
-    "clickToCustomize": "Click to customize",
-    "model": "Model",
-    "thinking": "Thinking",
-    "thinkingLevel": "Thinking Level",
-    "selectModel": "Select model",
-    "selectThinkingLevel": "Select thinking level",
-    "perPhaseOptimization": "(per-phase optimization)",
-    "resetToDefaults": "Reset to defaults",
-    "phaseConfigNote": "These settings will be used as defaults when creating new tasks with the Auto profile. You can override them per-task in the task creation wizard.",
-    "phases": {
-      "spec": {
-        "label": "Spec Creation",
-        "description": "Discovery, requirements, context gathering"
-      },
-      "planning": {
-        "label": "Planning",
-        "description": "Implementation planning and architecture"
-      },
-      "coding": {
-        "label": "Coding",
-        "description": "Actual code implementation"
-      },
-      "qa": {
-        "label": "QA Review",
-        "description": "Quality assurance and validation"
-      }
-    }
-  },
-  "workspace": {
-    "roles": {
-      "backend": "Backend",
-      "frontend": "Frontend",
-      "mobile": "Mobile",
-      "shared": "Shared",
-      "apiGateway": "API Gateway",
-      "worker": "Worker",
-      "other": "Other"
-    }
-  },
-  "integrations": {
     "title": "Integrations",
-    "description": "Manage Claude accounts and API keys",
-    "claudeAccounts": "Claude Accounts",
-    "claudeAccountsDescription": "Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.",
+    "description": "Manage subscription accounts and API keys",
+    "subscriptionAccounts": "Subscription Accounts",
+    "subscriptionAccountsDescription": "Add Claude, Codex, or Antigravity subscriptions to switch between accounts when you hit rate limits.",
     "noAccountsYet": "No accounts configured yet",
     "default": "Default",
     "active": "Active",
     "authenticated": "Authenticated",
     "needsAuth": "Needs Auth",
     "authenticate": "Authenticate",
+    "reauthenticate": "Re-authenticate account",
     "setActive": "Set Active",
     "manualTokenEntry": "Manual Token Entry",
     "runSetupToken": "Run claude setup-token to get your token",
@@ -283,6 +48,35 @@
     "emailPlaceholder": "Email (optional, for display)",
     "saveToken": "Save Token",
     "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "provider": "Provider",
+    "showTokenEntry": "Enter token manually",
+    "hideTokenEntry": "Hide token entry",
+    "renameAccount": "Rename account",
+    "deleteAccount": "Delete account",
+    "providers": {
+      "claude": {
+        "label": "Claude",
+        "description": "Use Claude Code OAuth tokens for multi-account switching.",
+        "tokenHint": "Run claude setup-token to get your token",
+        "tokenPlaceholder": "sk-ant-oat01-..."
+      },
+      "codex": {
+        "label": "Codex",
+        "description": "Paste your Codex API token to activate this account.",
+        "tokenHint": "Paste your Codex API token from the dashboard",
+        "tokenPlaceholder": "sk-codex-..."
+      },
+      "antigravity": {
+        "label": "Antigravity",
+        "description": "Paste your Antigravity access token to activate this account.",
+        "tokenHint": "Paste your Antigravity access token from the dashboard",
+        "tokenPlaceholder": "ag-..."
+      }
+    },
+    "errors": {
+      "invalidAccountName": "Account name must include at least one letter or number.",
+      "tokenRequired": "A token is required to authenticate {{provider}}."
+    },
     "autoSwitching": "Automatic Account Switching",
     "autoSwitchingDescription": "Automatically switch between Claude accounts to avoid interruptions. Configure proactive monitoring to switch before hitting limits.",
     "enableAutoSwitching": "Enable automatic switching",
@@ -304,6 +98,7 @@
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
     "openaiKeyDescription": "Required for Graphiti memory backend (embeddings)"
+  },
   },
   "debug": {
     "title": "Debug & Logs",

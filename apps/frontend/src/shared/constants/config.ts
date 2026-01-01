@@ -37,6 +37,18 @@ export const DEFAULT_APP_SETTINGS = {
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken: undefined as string | undefined,
   globalOpenAIApiKey: undefined as string | undefined,
+  subscriptionAccounts: [] as Array<{
+    id: string;
+    name: string;
+    provider: 'claude' | 'codex' | 'antigravity';
+    token?: string;
+    email?: string;
+    tokenCreatedAt?: Date;
+    createdAt: Date;
+    lastUsedAt?: Date;
+    description?: string;
+  }>,
+  activeSubscriptionAccountIds: {} as Partial<Record<'claude' | 'codex' | 'antigravity', string>>,
   // Selected agent profile - defaults to 'auto' for per-phase optimized model selection
   selectedAgentProfile: 'auto',
   // Changelog preferences (persisted between sessions)

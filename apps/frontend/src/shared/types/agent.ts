@@ -3,6 +3,33 @@
  */
 
 // ============================================
+// Subscription Account Types (Multi-Provider)
+// ============================================
+
+export type SubscriptionProvider = 'claude' | 'codex' | 'antigravity';
+
+/**
+ * Generic subscription account for multi-provider support.
+ */
+export interface SubscriptionAccount {
+  id: string;
+  name: string;
+  provider: SubscriptionProvider;
+  /** Access token or API key for the provider */
+  token?: string;
+  /** Email address associated with this account (for display) */
+  email?: string;
+  /** When the token was created (for expiry tracking) */
+  tokenCreatedAt?: Date;
+  /** When the account was created */
+  createdAt: Date;
+  /** Last time this account was used */
+  lastUsedAt?: Date;
+  /** Optional notes or description */
+  description?: string;
+}
+
+// ============================================
 // Claude Profile Types (Multi-Account Support)
 // ============================================
 
