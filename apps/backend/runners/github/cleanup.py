@@ -32,6 +32,7 @@ CLI:
 from __future__ import annotations
 
 import json
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -248,8 +249,11 @@ class DataCleaner:
     ) -> bool:
         """Process a single file for cleanup."""
         try:
-            with open(file_path, encoding="utf-8") as f:
-                data = json.load(f)
+            def _read_file():
+                with open(file_path, encoding="utf-8") as f:
+                    return json.load(f)
+
+            data = await asyncio.to_thread(_read_file)
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             # Corrupted file, mark for deletion
             if not dry_run:
